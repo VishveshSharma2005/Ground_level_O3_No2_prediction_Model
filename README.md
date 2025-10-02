@@ -72,20 +72,20 @@ streamlit run app.py
 
 ```
 sih2025-air-quality-forecasting/
-├── app.py                      # Main Streamlit application
-├── requirements.txt            # Python dependencies
-├── README.md                   # This file
-│
-├── src/                        # Source modules
+├── .python-version          # NEW - Force Python 3.11
+├── .streamlit/              # NEW - Streamlit config
+│   └── config.toml
+├── requirements.txt         # UPDATED - Minimal dependencies
+├── app.py
+├── src/
 │   ├── __init__.py
-│   ├── data_processor.py       # Feature engineering & preprocessing
-│   ├── model_trainer.py        # ML models & training pipeline
-│   └── utils.py               # Metrics, visualization, helpers
-│
-├── data/                       # Dataset directory
-│   ├── train/                 # Training files (site_X_train_data.csv)
-│   ├── unseen/               # Inference files (site_X_unseen_input_data.csv)  
-│   └── meta/                 # Metadata (lat_lon_sites.txt)
+│   ├── data_processor.py
+│   ├── model_trainer.py     # UPDATED - No TensorFlow
+│   └── utils.py
+├── data/
+│   ├── train/             # Your CSV files
+│   ├── unseen/             # Your CSV files
+│   └── meta/               # lat_lon_sites.txt
 │
 ├── models/                    # Saved model files
 │   └── .gitkeep
