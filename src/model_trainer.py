@@ -5,19 +5,14 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-import xgboost as xgb
 import lightgbm as lgb
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-from tensorflow.keras.callbacks import EarlyStopping
-import tensorflow as tf
 import warnings
 warnings.filterwarnings('ignore')
 
 class AirQualityModel:
     """
-    Advanced multi-output air quality prediction models for SIH 2025
-    Supports multiple model types: LightGBM, XGBoost, Random Forest, LSTM
+    Streamlit Cloud Compatible Air Quality Prediction Models
+    Removed TensorFlow/XGBoost dependencies for Python 3.13 compatibility
     """
 
     def __init__(self, model_type='lightgbm', random_state=42):
@@ -27,11 +22,11 @@ class AirQualityModel:
         self.is_fitted = False
 
     def _create_model(self, n_features):
-        """Create model based on type"""
+        """Create model based on type - Cloud compatible versions only"""
         if self.model_type == 'lightgbm':
             base_model = lgb.LGBMRegressor(
-                n_estimators=500,
-                learning_rate=0.05,
+                n_estimators=200,  # Reduced for faster deployment
+                learning_rate=0.1,
                 num_leaves=31,
                 feature_fraction=0.8,
                 bagging_fraction=0.8,
@@ -41,22 +36,10 @@ class AirQualityModel:
             )
             return MultiOutputRegressor(base_model)
 
-        elif self.model_type == 'xgboost':
-            base_model = xgb.XGBRegressor(
-                n_estimators=500,
-                learning_rate=0.05,
-                max_depth=6,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                random_state=self.random_state,
-                verbosity=0
-            )
-            return MultiOutputRegressor(base_model)
-
         elif self.model_type == 'randomforest':
             base_model = RandomForestRegressor(
-                n_estimators=300,
-                max_depth=15,
+                n_estimators=100,  # Reduced for faster deployment
+                max_depth=10,
                 min_samples_split=5,
                 min_samples_leaf=2,
                 random_state=self.random_state,
@@ -66,7 +49,7 @@ class AirQualityModel:
 
         elif self.model_type == 'gradientboosting':
             base_model = GradientBoostingRegressor(
-                n_estimators=300,
+                n_estimators=100,  # Reduced for faster deployment
                 learning_rate=0.1,
                 max_depth=6,
                 subsample=0.8,
@@ -76,7 +59,7 @@ class AirQualityModel:
 
         else:  # Default to LightGBM
             base_model = lgb.LGBMRegressor(
-                n_estimators=300,
+                n_estimators=100,
                 learning_rate=0.1,
                 num_leaves=31,
                 random_state=self.random_state,
@@ -127,21 +110,26 @@ class AirQualityModel:
     def predict(self, X):
         """Make predictions"""
         if not self.is_fitted:
-            # Return dummy predictions for demo
-            print("Model not fitted. Returning demo predictions...")
+            # Return realistic demo predictions for Streamlit Cloud
+            print("Model not fitted. Generating demo predictions...")
             n_samples = len(X)
 
             # Generate realistic demo predictions based on input forecasts
             if 'O3_forecast' in X.columns and 'NO2_forecast' in X.columns:
                 o3_base = X['O3_forecast'].values
                 no2_base = X['NO2_forecast'].values
-            else:
-                o3_base = np.full(n_samples, 35.0)
-                no2_base = np.full(n_samples, 45.0)
 
-            # Add some realistic noise and adjustments
-            o3_pred = o3_base + np.random.normal(0, 3, n_samples)
-            no2_pred = no2_base + np.random.normal(0, 5, n_samples)
+                # Add realistic variations to forecasts
+                o3_pred = o3_base * np.random.uniform(0.9, 1.1, n_samples)
+                no2_pred = no2_base * np.random.uniform(0.85, 1.15, n_samples)
+            else:
+                # Fallback to typical Delhi pollution levels
+                o3_pred = np.random.normal(35.0, 8.0, n_samples)
+                no2_pred = np.random.normal(45.0, 12.0, n_samples)
+
+            # Ensure positive values
+            o3_pred = np.maximum(o3_pred, 1.0)
+            no2_pred = np.maximum(no2_pred, 1.0)
 
             return np.column_stack([o3_pred, no2_pred])
 
@@ -198,72 +186,3 @@ class AirQualityModel:
         except Exception as e:
             print(f"Error loading model: {e}")
             self.is_fitted = False
-
-class LSTMModel:
-    """
-    LSTM-based model for sequence prediction
-    For advanced temporal modeling of air quality data
-    """
-
-    def __init__(self, sequence_length=24, lstm_units=50, dense_units=25):
-        self.sequence_length = sequence_length
-        self.lstm_units = lstm_units
-        self.dense_units = dense_units
-        self.model = None
-        self.scaler = None
-
-    def create_sequences(self, data, target_cols):
-        """Create sequences for LSTM training"""
-        X, y = [], []
-        for i in range(len(data) - self.sequence_length):
-            X.append(data[i:(i + self.sequence_length)])
-            if target_cols is not None:
-                y.append(data[i + self.sequence_length][target_cols])
-        return np.array(X), np.array(y)
-
-    def build_model(self, input_shape, output_dim=2):
-        """Build LSTM model architecture"""
-        self.model = Sequential([
-            Input(shape=input_shape),
-            LSTM(self.lstm_units, return_sequences=True, dropout=0.2),
-            LSTM(self.lstm_units//2, dropout=0.2),
-            Dense(self.dense_units, activation='relu'),
-            Dropout(0.3),
-            Dense(output_dim, activation='linear')
-        ])
-
-        self.model.compile(
-            optimizer='adam',
-            loss='mse',
-            metrics=['mae']
-        )
-
-        return self.model
-
-    def train(self, X, y, validation_split=0.2, epochs=100):
-        """Train LSTM model"""
-        if self.model is None:
-            self.build_model((X.shape[1], X.shape[2]))
-
-        early_stopping = EarlyStopping(
-            monitor='val_loss',
-            patience=10,
-            restore_best_weights=True
-        )
-
-        history = self.model.fit(
-            X, y,
-            validation_split=validation_split,
-            epochs=epochs,
-            batch_size=32,
-            callbacks=[early_stopping],
-            verbose=1
-        )
-
-        return history
-
-    def predict(self, X):
-        """Make predictions with LSTM model"""
-        if self.model is None:
-            raise ValueError("Model not trained")
-        return self.model.predict(X)
